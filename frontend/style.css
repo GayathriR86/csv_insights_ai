@@ -1,0 +1,113 @@
+/* Tabs */
+.tab-btn {
+  padding: 0.75rem 1.1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #64748b;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+  background: transparent;
+  cursor: pointer;
+}
+.tab-btn:hover {
+  color: #7c3aed;
+  background: #f5f3ff;
+}
+.tab-btn.active {
+  color: #6d28d9;
+  border-bottom-color: #7c3aed;
+  background: white;
+}
+
+/* Insight cards */
+.insight-card {
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-left: 4px solid;
+}
+.insight-info {
+  background: #f0f9ff;
+  border-color: #3b82f6;
+}
+.insight-warning {
+  background: #fffbeb;
+  border-color: #f59e0b;
+}
+.insight-success {
+  background: #ecfdf5;
+  border-color: #10b981;
+}
+
+/* Tables */
+table th {
+  font-weight: 600;
+  color: #475569;
+}
+table td {
+  border-top: 1px solid #e2e8f0;
+  padding: 0.4rem 0.75rem;
+}
+table tbody tr:hover {
+  background: #f8fafc;
+}
+
+/* Metric cards */
+.metric-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 0.85rem 1rem;
+  text-align: center;
+}
+.metric-card .value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #1e1b4b;
+}
+.metric-card .label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #94a3b8;
+  margin-top: 0.15rem;
+}
+
+/* Suggestion chips */
+.chip {
+  display: inline-block;
+  padding: 0.3rem 0.75rem;
+  border-radius: 9999px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  font-size: 0.75rem;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.chip:hover {
+  background: #ede9fe;
+  border-color: #c4b5fd;
+  color: #6d28d9;
+}
+
+/* Loading spinner already via Tailwind animate-spin */
+
+/* Prose tweaks for LLM answers */
+.prose h1, .prose h2, .prose h3 {
+  color: #1e1b4b;
+  margin-top: 1rem;
+  margin-bottom: 0.4rem;
+}
+.prose ul {
+  list-style-type: disc;
+  padding-left: 1.25rem;
+}
+.prose p {
+  margin-bottom: 0.6rem;
+}
+.prose code {
+  background: #f1f5f9;
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.25rem;
+  font-size: 0.85em;
+}

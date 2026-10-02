@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CSV Data Analyzer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="style.css" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50: '#f5f3ff', 100: '#ede9fe', 500: '#8b5cf6', 600: '#7c3aed', 700: '#6d28d9', 900: '#4c1d95' }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+
+  <!-- Header -->
+  <header class="bg-gradient-to-r from-brand-700 to-indigo-700 text-white shadow-lg">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="text-3xl">📊</div>
+        <div>
+          <h1 class="text-xl font-bold tracking-tight">CSV Data Analyzer</h1>
+          <p class="text-indigo-200 text-xs">Upload → Analyze → Charts → Outliers → Correlate → AI → Ask → Report</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="btn-settings" class="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-sm transition">
+          ⚙️ LLM Settings
+        </button>
+        <span id="status-badge" class="px-3 py-1 rounded-full text-xs font-medium bg-white/20">No file loaded</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-bold text-slate-800">LLM Settings</h2>
+        <button id="close-settings" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">API Key</label>
+          <input id="api-key" type="password" placeholder="sk-... or xai-..."
+            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Base URL (optional)</label>
+          <input id="base-url" type="text" placeholder="https://api.openai.com/v1  or  https://api.x.ai/v1"
+            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none" />
+          <p class="text-xs text-slate-400 mt-1">Leave empty for OpenAI. Use https://api.x.ai/v1 for Grok.</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Model</label>
+          <input id="model-name" type="text" value="gpt-4o-mini"
+            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none" />
+          <p class="text-xs text-slate-400 mt-1">Examples: gpt-4o-mini, gpt-4o, grok-3, grok-2</p>
+        </div>
+        <button id="save-settings" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-medium py-2 rounded-lg transition">
+          Save Settings
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <main class="max-w-7xl mx-auto px-4 py-6">
+
+    <!-- Upload Zone -->
+    <section id="upload-section" class="mb-6">
+      <div id="drop-zone"
+        class="border-2 border-dashed border-brand-500/40 rounded-2xl bg-white p-10 text-center hover:border-brand-500 hover:bg-brand-50/50 transition cursor-pointer">
+        <div class="text-5xl mb-3">📁</div>
+        <p class="text-lg font-semibold text-slate-700">Drop CSV / Excel file here</p>
+        <p class="text-sm text-slate-500 mt-1">or click to browse (.csv, .xlsx, .xls)</p>
+        <input type="file" id="file-input" accept=".csv,.xlsx,.xls" class="hidden" />
+      </div>
+      <div id="upload-progress" class="hidden mt-3">
+        <div class="w-full bg-slate-200 rounded-full h-2">
+          <div id="progress-bar" class="bg-brand-600 h-2 rounded-full transition-all" style="width:0%"></div>
+        </div>
+        <p id="upload-msg" class="text-sm text-slate-500 mt-1 text-center"></p>
+      </div>
+    </section>
+
+    <!-- Main content (hidden until data loaded) -->
+    <div id="app-content" class="hidden">
+
+      <!-- Metrics -->
+      <div id="metrics" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6"></div>
+
+      <!-- Tabs -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="flex flex-wrap border-b border-slate-200 bg-slate-50" id="tab-bar">
+          <button class="tab-btn active" data-tab="overview">📋 Overview</button>
+          <button class="tab-btn" data-tab="charts">📊 Charts</button>
+          <button class="tab-btn" data-tab="outliers">🔍 Outliers</button>
+          <button class="tab-btn" data-tab="correlation">🔗 Correlation</button>
+          <button class="tab-btn" data-tab="insights">🤖 AI Insights</button>
+          <button class="tab-btn" data-tab="ask">💬 Ask Your Data</button>
+          <button class="tab-btn" data-tab="report">📥 Report</button>
+        </div>
+
+        <!-- Tab panels -->
+        <div class="p-5">
+
+          <!-- OVERVIEW -->
+          <div id="tab-overview" class="tab-panel">
+            <div class="grid lg:grid-cols-2 gap-6">
+              <div>
+                <h3 class="font-semibold text-slate-700 mb-2">Column Information</h3>
+                <div class="overflow-auto max-h-80 border rounded-lg">
+                  <table class="min-w-full text-sm" id="col-info-table">
+                    <thead class="bg-slate-100 sticky top-0">
+                      <tr>
+                        <th class="px-3 py-2 text-left">Column</th>
+                        <th class="px-3 py-2 text-left">Type</th>
+                        <th class="px-3 py-2 text-right">Nulls</th>
+                        <th class="px-3 py-2 text-right">Null %</th>
+                        <th class="px-3 py-2 text-right">Unique</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+              </div>
+              <div>
+                <h3 class="font-semibold text-slate-700 mb-2">Data Preview</h3>
+                <div class="overflow-auto max-h-80 border rounded-lg">
+                  <table class="min-w-full text-sm" id="preview-table">
+                    <thead class="bg-slate-100 sticky top-0"><tr></tr></thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div class="mt-6">
+              <h3 class="font-semibold text-slate-700 mb-2">Numeric Summary</h3>
+              <div id="describe-container" class="overflow-auto border rounded-lg"></div>
+            </div>
+          </div>
+
+          <!-- CHARTS -->
+          <div id="tab-charts" class="tab-panel hidden">
+            <div class="flex flex-wrap gap-3 mb-4 items-end">
+              <div>
+                <label class="text-xs font-medium text-slate-500">Chart Type</label>
+                <select id="chart-type" class="block border rounded-lg px-3 py-1.5 text-sm">
+                  <option value="histogram">Histogram</option>
+                  <option value="bar">Bar (Value Counts)</option>
+                  <option value="scatter">Scatter</option>
+                  <option value="box">Box Plot</option>
+                </select>
+              </div>
+              <div id="chart-col-wrap">
+                <label class="text-xs font-medium text-slate-500">Column</label>
+                <select id="chart-col" class="block border rounded-lg px-3 py-1.5 text-sm"></select>
+              </div>
+              <div id="chart-x-wrap" class="hidden">
+                <label class="text-xs font-medium text-slate-500">X Axis</label>
+                <select id="chart-x" class="block border rounded-lg px-3 py-1.5 text-sm"></select>
+              </div>
+              <div id="chart-y-wrap" class="hidden">
+                <label class="text-xs font-medium text-slate-500">Y Axis</label>
+                <select id="chart-y" class="block border rounded-lg px-3 py-1.5 text-sm"></select>
+              </div>
+              <div id="chart-color-wrap" class="hidden">
+                <label class="text-xs font-medium text-slate-500">Color (optional)</label>
+                <select id="chart-color" class="block border rounded-lg px-3 py-1.5 text-sm">
+                  <option value="">None</option>
+                </select>
+              </div>
+              <button id="btn-draw-chart" class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-1.5 rounded-lg text-sm font-medium">
+                Draw Chart
+              </button>
+            </div>
+            <div id="chart-area" class="w-full h-[420px] bg-slate-50 rounded-xl border"></div>
+          </div>
+
+          <!-- OUTLIERS -->
+          <div id="tab-outliers" class="tab-panel hidden">
+            <div class="flex flex-wrap gap-3 mb-4 items-end">
+              <div>
+                <label class="text-xs font-medium text-slate-500">Method</label>
+                <select id="outlier-method" class="block border rounded-lg px-3 py-1.5 text-sm">
+                  <option value="iqr">IQR (Univariate)</option>
+                  <option value="zscore">Z-Score</option>
+                  <option value="isolation">Isolation Forest</option>
+                </select>
+              </div>
+              <div id="outlier-col-wrap">
+                <label class="text-xs font-medium text-slate-500">Column</label>
+                <select id="outlier-col" class="block border rounded-lg px-3 py-1.5 text-sm"></select>
+              </div>
+              <div id="z-thresh-wrap" class="hidden">
+                <label class="text-xs font-medium text-slate-500">Z Threshold</label>
+                <input id="z-thresh" type="number" value="3" step="0.1" min="2" max="5"
+                  class="block border rounded-lg px-3 py-1.5 text-sm w-20" />
+              </div>
+              <button id="btn-outliers" class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-1.5 rounded-lg text-sm font-medium">
+                Detect Outliers
+              </button>
+            </div>
+            <div id="outlier-metrics" class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4"></div>
+            <div id="outlier-chart" class="w-full h-[360px] mb-4"></div>
+            <div id="outlier-table-wrap" class="overflow-auto max-h-64 border rounded-lg hidden">
+              <table class="min-w-full text-sm" id="outlier-table">
+                <thead class="bg-slate-100 sticky top-0"><tr></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- CORRELATION -->
+          <div id="tab-correlation" class="tab-panel hidden">
+            <div class="flex flex-wrap gap-3 mb-4 items-end">
+              <div>
+                <label class="text-xs font-medium text-slate-500">Method</label>
+                <select id="corr-method" class="block border rounded-lg px-3 py-1.5 text-sm">
+                  <option value="pearson">Pearson</option>
+                  <option value="spearman">Spearman</option>
+                  <option value="kendall">Kendall</option>
+                </select>
+              </div>
+              <button id="btn-corr" class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-1.5 rounded-lg text-sm font-medium">
+                Compute Correlation
+              </button>
+            </div>
+            <div id="corr-heatmap" class="w-full h-[480px] mb-4"></div>
+            <h3 class="font-semibold text-slate-700 mb-2">Strongest Pairs</h3>
+            <div class="overflow-auto max-h-64 border rounded-lg">
+              <table class="min-w-full text-sm" id="corr-pairs-table">
+                <thead class="bg-slate-100 sticky top-0">
+                  <tr>
+                    <th class="px-3 py-2 text-left">Feature A</th>
+                    <th class="px-3 py-2 text-left">Feature B</th>
+                    <th class="px-3 py-2 text-right">Correlation</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- AI INSIGHTS -->
+          <div id="tab-insights" class="tab-panel hidden">
+            <div class="flex flex-wrap gap-3 mb-4">
+              <button id="btn-rule-insights" class="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                Generate Rule-based Insights
+              </button>
+              <button id="btn-llm-insights" class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                ✨ Generate LLM Narrative Insights
+              </button>
+            </div>
+            <div id="insights-list" class="space-y-3"></div>
+            <div id="llm-insights-box" class="mt-6 hidden">
+              <h3 class="font-semibold text-slate-700 mb-2">AI Narrative Report</h3>
+              <div id="llm-insights-content" class="prose prose-sm max-w-none bg-indigo-50 border border-indigo-100 rounded-xl p-5"></div>
+            </div>
+          </div>
+
+          <!-- ASK YOUR DATA -->
+          <div id="tab-ask" class="tab-panel hidden">
+            <p class="text-sm text-slate-500 mb-3">Ask anything about your dataset. Uses your configured LLM (OpenAI / Grok / etc.).</p>
+            <div class="flex flex-wrap gap-2 mb-3" id="suggestions"></div>
+            <div class="flex gap-2">
+              <input id="ask-input" type="text" placeholder="e.g. What are the strongest correlations? Any data quality issues?"
+                class="flex-1 border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 outline-none" />
+              <button id="btn-ask" class="bg-brand-600 hover:bg-brand-700 text-white px-5 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap">
+                Ask
+              </button>
+            </div>
+            <div id="ask-answer" class="mt-5 hidden">
+              <div class="bg-white border border-slate-200 rounded-xl p-5 prose prose-sm max-w-none" id="ask-answer-content"></div>
+            </div>
+            <div id="ask-loading" class="hidden mt-5 text-center text-slate-500">
+              <div class="inline-block animate-spin rounded-full h-6 w-6 border-2 border-brand-600 border-t-transparent"></div>
+              <p class="mt-2 text-sm">Thinking with LLM...</p>
+            </div>
+          </div>
+
+          <!-- REPORT -->
+          <div id="tab-report" class="tab-panel hidden">
+            <p class="text-sm text-slate-500 mb-4">Download a professional analysis report.</p>
+            <div class="grid sm:grid-cols-2 gap-4 max-w-xl">
+              <div class="border rounded-xl p-5 hover:border-brand-500 transition">
+                <div class="text-3xl mb-2">📄</div>
+                <h3 class="font-semibold">PDF Report</h3>
+                <p class="text-xs text-slate-500 mb-3">Full formatted report with tables & insights</p>
+                <label class="flex items-center gap-2 text-sm mb-3">
+                  <input type="checkbox" id="pdf-include-llm" class="rounded" />
+                  Include LLM narrative (uses API key)
+                </label>
+                <button id="btn-pdf" class="w-full bg-brand-600 hover:bg-brand-700 text-white py-2 rounded-lg text-sm font-medium">
+                  Download PDF
+                </button>
+              </div>
+              <div class="border rounded-xl p-5 hover:border-brand-500 transition">
+                <div class="text-3xl mb-2">📝</div>
+                <h3 class="font-semibold">Markdown Report</h3>
+                <p class="text-xs text-slate-500 mb-3">Lightweight .md file for docs / GitHub</p>
+                <label class="flex items-center gap-2 text-sm mb-3">
+                  <input type="checkbox" id="md-include-llm" class="rounded" />
+                  Include LLM narrative
+                </label>
+                <button id="btn-md" class="w-full bg-slate-700 hover:bg-slate-800 text-white py-2 rounded-lg text-sm font-medium">
+                  Download Markdown
+                </button>
+              </div>
+            </div>
+            <div id="report-status" class="mt-4 text-sm text-slate-500"></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="text-center text-xs text-slate-400 py-8">
+    CSV Data Analyzer · FastAPI + Plotly.js · LLM-powered
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
